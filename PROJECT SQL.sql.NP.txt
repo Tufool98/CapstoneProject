@@ -1,0 +1,224 @@
+-- 1)DDL
+create database Project
+
+use Project
+
+CREATE TABLE Trainee (
+    trainee_id INT PRIMARY KEY,
+    name NVARCHAR(100) NOT NULL,
+    gender NVARCHAR(10),
+    email NVARCHAR(100) UNIQUE NOT NULL,
+    background VARCHAR(100)
+);
+
+CREATE TABLE Trainer (
+    trainer_id INT PRIMARY KEY,
+    name NVARCHAR(100) NOT NULL,
+    specialty NVARCHAR(100),
+    phone NVARCHAR(15),
+    email NVARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE Course (
+    course_id INT PRIMARY KEY,
+    title NVARCHAR(150) NOT NULL,
+    category NVARCHAR(50),
+    duration_hours INT,
+    level NVARCHAR(20) 
+);
+
+CREATE TABLE Schedule (
+    schedule_id INT PRIMARY KEY,
+    course_id INT,
+    trainer_id INT,
+    start_date DATE,
+    end_date DATE,
+    time_slot NVARCHAR(20),
+    FOREIGN KEY (course_id) REFERENCES Course(course_id),
+    FOREIGN KEY (trainer_id) REFERENCES Trainer(trainer_id)
+);
+
+CREATE TABLE Enrollment (
+    enrollment_id INT PRIMARY KEY,
+    trainee_id INT,
+    course_id INT,
+    enrollment_date DATE,
+    FOREIGN KEY (trainee_id) REFERENCES Trainee(trainee_id),
+    FOREIGN KEY (course_id) REFERENCES Course(course_id)
+);
+
+-- 2)DML
+
+INSERT INTO Trainee (trainee_id, name, gender, email, background) VALUES
+(1, 'Aisha Al-Harthy', 'Female', 'aisha@example.com', 'Engineering'),
+(2, 'Sultan Al-Farsi', 'Male', 'sultan@example.com', 'Business'),
+(3, 'Mariam Al-Saadi', 'Female', 'mariam@example.com', 'Marketing'),
+(4, 'Omar Al-Balushi', 'Male', 'omar@example.com', 'Computer Science'),
+(5, 'Fatma Al-Hinai', 'Female', 'fatma@example.com', 'Data Science');
+
+INSERT INTO Trainer (trainer_id, name, specialty, phone, email) VALUES
+(1, 'Khalid Al-Maawali', 'Databases', '96891234567', 'khalid@example.com'),
+(2, 'Noura Al-Kindi', 'Web Development', '96892345678', 'noura@example.com'),
+(3, 'Salim Al-Harthy', 'Data Science', '96893456789', 'salim@example.com');
+
+INSERT INTO Course (course_id, title, category, duration_hours, level) VALUES
+(1, 'Database Fundamentals', 'Databases', 20, 'Beginner'),
+(2, 'Web Development Basics', 'Web', 30, 'Beginner'),
+(3, 'Data Science Introduction', 'Data Science', 25, 'Intermediate'),
+(4, 'Advanced SQL Queries', 'Databases', 15, 'Advanced');
+
+INSERT INTO Schedule (schedule_id, course_id, trainer_id, start_date, end_date, time_slot) VALUES
+(1, 1, 1, '2025-07-01', '2025-07-10', 'Morning'),
+(2, 2, 2, '2025-07-05', '2025-07-20', 'Evening'),
+(3, 3, 3, '2025-07-10', '2025-07-25', 'Weekend'),
+(4, 4, 1, '2025-07-15', '2025-07-22', 'Morning');
+
+-- ERROR: I accidentally inserted the values twice and got: 
+-- Msg 2627, Level 14, State 1, Line 70
+-- Violation of PRIMARY KEY constraint 'PK__Schedule__C46A8A6F25FBDB8E'. Cannot insert duplicate key in object 'dbo.Schedule'. 
+-- The duplicate key value is (1) and The statement has been terminated.
+
+INSERT INTO Enrollment (enrollment_id, trainee_id, course_id, enrollment_date) VALUES
+(1, 1, 1, '2025-06-01'),
+(2, 2, 1, '2025-06-02'),
+(3, 3, 2, '2025-06-03'),
+(4, 4, 3, '2025-06-04'),
+(5, 5, 3, '2025-06-05'),
+(6, 1, 4, '2025-06-06');
+
+-- QUERIES
+-- Trainee Queries
+
+-- 1.Show all available courses 
+SELECT title, level, category
+FROM Course
+ORDER BY category, level;
+
+-- 2.View beginner-level Data Science courses
+SELECT title, level, category, duration_hours
+FROM Course
+WHERE level = 'Beginner' AND category = 'Data Science';
+
+-- 3.Show courses this trainee is enrolled in (using trainee_id = 1 as example)
+SELECT c.title, c.category, c.level
+FROM Course c
+JOIN Enrollment e ON c.course_id = e.course_id
+WHERE e.trainee_id = 1;
+
+-- 4.View the schedule for the trainee's enrolled courses (trainee_id = 1)
+SELECT c.title, s.start_date, s.end_date, s.time_slot
+FROM Course c
+JOIN Enrollment e ON c.course_id = e.course_id
+JOIN Schedule s ON c.course_id = s.course_id
+WHERE e.trainee_id = 1
+ORDER BY s.start_date;
+
+-- 5.Count how many courses the trainee is enrolled in (trainee_id = 1)
+SELECT COUNT(*) as enrolled_courses_count
+FROM Enrollment
+WHERE trainee_id = 1;
+
+-- 6.Show course titles, trainer names, and time slots the trainee is attending
+SELECT c.title, t.name as trainer_name, s.time_slot, s.start_date
+FROM Course c
+JOIN Enrollment e ON c.course_id = e.course_id
+JOIN Schedule s ON c.course_id = s.course_id
+JOIN Trainer t ON s.trainer_id = t.trainer_id
+WHERE e.trainee_id = 1
+ORDER BY s.start_date;
+
+-- 4)Trainer Queries
+
+-- 1.List all courses the trainer is assigned to (trainer_id = 1)
+SELECT c.title, c.category, c.level, c.duration_hours
+FROM Course c
+JOIN Schedule s ON c.course_id = s.course_id
+WHERE s.trainer_id = 1;
+
+-- 2.Show upcoming sessions for trainer (trainer_id = 1)
+SELECT c.title, s.start_date, s.end_date, s.time_slot
+FROM Course c
+JOIN Schedule s ON c.course_id = s.course_id
+-- CAST (GETDATE() AS DATE) - returns current date without time
+WHERE s.trainer_id = 1 AND s.start_date >= CAST (GETDATE() AS DATE)
+ORDER BY s.start_date;
+-- ERROR: when i tried to mention the current date to be compared with start date
+-- Msg 156, Level 15, State 1, Line 141
+-- Incorrect syntax near the keyword 'CURRENT_DATE'.
+
+-- 3.See how many trainees are enrolled in each of trainer's courses
+SELECT c.title, COUNT(e.trainee_id) as enrolled_trainees
+FROM Course c
+JOIN Schedule s ON c.course_id = s.course_id
+LEFT JOIN Enrollment e ON c.course_id = e.course_id
+WHERE s.trainer_id = 1
+GROUP BY c.course_id, c.title
+ORDER BY enrolled_trainees DESC; -- DESC stands for "descending order
+
+-- 4.List names and emails of trainees in trainer's courses (trainer_id = 1)
+SELECT c.title, tr.name as trainee_name, tr.email
+FROM Course c
+JOIN Schedule s ON c.course_id = s.course_id
+JOIN Enrollment e ON c.course_id = e.course_id
+JOIN Trainee tr ON e.trainee_id = tr.trainee_id
+WHERE s.trainer_id = 1
+ORDER BY c.title, tr.name;
+
+-- 5.Show trainer's contact info and assigned courses (trainer_id = 1)
+SELECT DISTINCT t.name, t.phone, t.email, c.title
+FROM Trainer t
+JOIN Schedule s ON t.trainer_id = s.trainer_id
+JOIN Course c ON s.course_id = c.course_id
+WHERE t.trainer_id = 1;
+
+-- Query 6: Count the number of courses the trainer teaches (trainer_id = 1)
+SELECT COUNT(DISTINCT s.course_id) as courses_taught
+FROM Schedule s
+WHERE s.trainer_id = 1;
+
+-- 5)Admin Queries
+
+-- 1.Add a new course (INSERT statement) - python course
+INSERT INTO Course (course_id, title, category, duration_hours, level)
+VALUES (5, 'Python Programming Basics', 'Programming', 35, 'Beginner');
+
+-- 2.Create a new (python course) schedule for trainer 2
+INSERT INTO Schedule (schedule_id, course_id, trainer_id, start_date, end_date, time_slot)
+VALUES (5, 5, 2, '2025-08-01', '2025-08-15', 'Evening');
+
+-- 3.View all trainee enrollments with course title and schedule info
+SELECT tr.name as trainee_name, c.title as course_title, e.enrollment_date, s.start_date, s.end_date, s.time_slot
+FROM Enrollment e
+JOIN Trainee tr ON e.trainee_id = tr.trainee_id
+JOIN Course c ON e.course_id = c.course_id
+JOIN Schedule s ON c.course_id = s.course_id
+ORDER BY tr.name, s.start_date;
+
+-- 4.Show how many courses each trainer is assigned to
+SELECT t.name, COUNT(DISTINCT s.course_id) as assigned_courses
+FROM Trainer t
+LEFT JOIN Schedule s ON t.trainer_id = s.trainer_id
+GROUP BY t.trainer_id, t.name
+ORDER BY assigned_courses DESC;
+
+-- 5.List all trainees enrolled in "Database Fundamentals"
+SELECT tr.name, tr.email, tr.background
+FROM Trainee tr
+JOIN Enrollment e ON tr.trainee_id = e.trainee_id
+JOIN Course c ON e.course_id = c.course_id
+WHERE c.title = 'Database Fundamentals'
+ORDER BY tr.name;
+
+-- 6.Identify the course with the highest number of enrollments
+SELECT TOP 1 c.title, COUNT(e.enrollment_id) as enrollment_count
+FROM Course c
+LEFT JOIN Enrollment e ON c.course_id = e.course_id
+GROUP BY c.course_id, c.title
+ORDER BY enrollment_count DESC
+
+-- 7.Display all schedules sorted by start date
+SELECT s.schedule_id, c.title, t.name as trainer_name, s.start_date, s.end_date, s.time_slot
+FROM Schedule s
+JOIN Course c ON s.course_id = c.course_id
+JOIN Trainer t ON s.trainer_id = t.trainer_id
+ORDER BY s.start_date;
